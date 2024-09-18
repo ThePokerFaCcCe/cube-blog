@@ -23,8 +23,11 @@ class PostViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = models.Post.objects.all()
         category_id = self.request.query_params.get("category_id")
+        search_query = self.request.query_params.get("search")
         if category_id:
             queryset = queryset.filter(category_id=category_id)
+        if search_query:
+            queryset = queryset.filter(title__icontains=search_query)
         return queryset
 
     @decorators.action(["get"], detail=False)
@@ -33,6 +36,21 @@ class PostViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(recent_posts, many=True)
         return response.Response(serializer.data)
+
+    @decorators.action(["get"], detail=True, url_path="suggest")
+    def sugget_next(self, request, pk=None):
+        pk = int(pk)
+        prev_post = self.get_queryset().filter(id=pk - 1).first()
+        next_post = self.get_queryset().filter(id=pk + 1).first()
+
+        prev_post_serializer = self.get_serializer(prev_post) if prev_post else None
+        next_post_serializer = self.get_serializer(next_post) if next_post else None
+        return response.Response(
+            {
+                "previous": prev_post_serializer.data if prev_post_serializer else None,
+                "next": next_post_serializer.data if next_post_serializer else None,
+            }
+        )
 
 
 class CommentViewSet(viewsets.ModelViewSet):
